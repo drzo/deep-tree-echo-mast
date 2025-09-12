@@ -11,6 +11,7 @@ import { sharedPostgresStorage } from "./storage";
 import { inngest, inngestServe } from "./inngest";
 import { dailyParserTool } from "./tools/dailyParserTool";
 import { weeklyProcessorTool } from "./tools/weeklyProcessorTool";
+import { monthlyIntrospectionTool } from "./tools/monthlyIntrospectionTool";
 
 class ProductionPinoLogger extends MastraLogger {
   protected logger: pino.Logger;
@@ -61,7 +62,7 @@ export const mastra = new Mastra({
     allTools: new MCPServer({
       name: "allTools",
       version: "1.0.0",
-      tools: { dailyParserTool, weeklyProcessorTool },
+      tools: { dailyParserTool, weeklyProcessorTool, monthlyIntrospectionTool },
     }),
   },
   bundler: {
