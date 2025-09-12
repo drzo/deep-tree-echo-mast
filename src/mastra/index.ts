@@ -8,10 +8,11 @@ import { NonRetriableError } from "inngest";
 import { z } from "zod";
 
 import { sharedPostgresStorage } from "./storage";
-import { inngest, inngestServe } from "./inngest";
+import { inngest, inngestServe, registerCronWorkflow } from "./inngest";
 import { dailyParserTool } from "./tools/dailyParserTool";
 import { weeklyProcessorTool } from "./tools/weeklyProcessorTool";
 import { monthlyIntrospectionTool } from "./tools/monthlyIntrospectionTool";
+import { memoryProcessingWorkflow } from "./workflows/memoryProcessingWorkflow";
 
 class ProductionPinoLogger extends MastraLogger {
   protected logger: pino.Logger;
@@ -54,10 +55,17 @@ class ProductionPinoLogger extends MastraLogger {
   }
 }
 
+// Register the memory processing workflow as a cron job to run daily at 2 AM
+// Using America/Los_Angeles timezone as default
+registerCronWorkflow(
+  `TZ=${process.env.SCHEDULE_CRON_TIMEZONE || 'America/Los_Angeles'} ${process.env.SCHEDULE_CRON_EXPRESSION || '0 2 * * *'}`, 
+  memoryProcessingWorkflow
+);
+
 export const mastra = new Mastra({
   storage: sharedPostgresStorage,
   agents: {},
-  workflows: {},
+  workflows: { memoryProcessingWorkflow },
   mcpServers: {
     allTools: new MCPServer({
       name: "allTools",
