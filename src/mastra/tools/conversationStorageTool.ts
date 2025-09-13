@@ -10,7 +10,7 @@ export const conversationStorageTool = createTool({
     session_id: z.string().describe("Unique identifier for the conversation session"),
     role: z.enum(["user", "assistant"]).describe("Role of the message sender"),
     content: z.string().describe("The message content"),
-    metadata: z.record(z.any()).optional().describe("Additional context or metadata for the message"),
+    metadata: z.object({}).passthrough().optional().describe("Additional context or metadata for the message"),
   }),
   outputSchema: z.object({
     success: z.boolean(),
