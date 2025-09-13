@@ -6,13 +6,17 @@ import pino from "pino";
 import { MCPServer } from "@mastra/mcp";
 import { NonRetriableError } from "inngest";
 import { z } from "zod";
+import { RuntimeContext } from "@mastra/core/di";
 
 import { sharedPostgresStorage } from "./storage";
 import { inngest, inngestServe, registerCronWorkflow } from "./inngest";
 import { dailyParserTool } from "./tools/dailyParserTool";
 import { weeklyProcessorTool } from "./tools/weeklyProcessorTool";
 import { monthlyIntrospectionTool } from "./tools/monthlyIntrospectionTool";
+import { conversationStorageTool } from "./tools/conversationStorageTool";
+import { memoryQueryTool } from "./tools/memoryQueryTool";
 import { memoryProcessingWorkflow } from "./workflows/memoryProcessingWorkflow";
+import { deepTreeEchoAgent } from "./agents/deepTreeEchoAgent";
 
 class ProductionPinoLogger extends MastraLogger {
   protected logger: pino.Logger;
@@ -64,13 +68,19 @@ registerCronWorkflow(
 
 export const mastra = new Mastra({
   storage: sharedPostgresStorage,
-  agents: {},
+  agents: { deepTreeEchoAgent },
   workflows: { memoryProcessingWorkflow },
   mcpServers: {
     allTools: new MCPServer({
       name: "allTools",
       version: "1.0.0",
-      tools: { dailyParserTool, weeklyProcessorTool, monthlyIntrospectionTool },
+      tools: { 
+        dailyParserTool, 
+        weeklyProcessorTool, 
+        monthlyIntrospectionTool,
+        conversationStorageTool,
+        memoryQueryTool
+      },
     }),
   },
   bundler: {
@@ -132,6 +142,167 @@ export const mastra = new Mastra({
         //    - Handle workflow state persistence and real-time updates
         // 3. Establishing a publish-subscribe system for real-time monitoring
         //    through the workflow:${workflowId}:${runId} channel
+      },
+      // Chat API endpoint for Deep Tree Echo Agent
+      {
+        path: "/api/chat",
+        method: "POST",
+        createHandler: async ({ mastra }) => {
+          return async (c: any) => {
+            const logger = mastra.getLogger();
+            logger?.info('🌳 [DeepTreeEcho] Chat endpoint received request', {
+              method: c.req.method,
+              url: c.req.url,
+              timestamp: new Date().toISOString()
+            });
+
+            try {
+              const body = await c.req.json();
+              const { message, sessionId, threadId } = body;
+
+              if (!message) {
+                logger?.warn('⚠️ [DeepTreeEcho] Missing message in request');
+                return c.json({ error: "Message is required" }, 400);
+              }
+
+              const agent = mastra.getAgent("deepTreeEchoAgent");
+              if (!agent) {
+                logger?.error('❌ [DeepTreeEcho] Agent not found');
+                return c.json({ error: "Deep Tree Echo agent not available" }, 500);
+              }
+
+              // Generate session ID if not provided
+              const chatSessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+              const chatThreadId = threadId || `thread_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+              logger?.info('📝 [DeepTreeEcho] Processing chat message', {
+                sessionId: chatSessionId,
+                threadId: chatThreadId,
+                messageLength: message.length
+              });
+
+              // First, query relevant memories to provide context
+              logger?.info('🔍 [DeepTreeEcho] Searching memories for context');
+              const runtimeContext = new RuntimeContext();
+              const memoryContext = await memoryQueryTool.execute({
+                context: {
+                  query: message,
+                  memory_types: ["semantic", "episodic", "wisdom", "working"],
+                  limit_per_type: 3,
+                  include_recent_working: true
+                },
+                mastra,
+                runtimeContext,
+                tracingContext: {}
+              });
+
+              logger?.info('📚 [DeepTreeEcho] Memory search completed', {
+                memoriesFound: memoryContext.total_found,
+                summary: memoryContext.search_summary
+              });
+
+              // Prepare context-enriched messages
+              const messages: any[] = [];
+              
+              // Add memory context as system message if memories found
+              if (memoryContext.memories && memoryContext.memories.length > 0) {
+                const contextSummary = `Based on my accumulated memories:\n\n${
+                  memoryContext.memories.slice(0, 5).map(m => 
+                    `[${m.type}] ${m.content}`
+                  ).join('\n\n')
+                }`;
+                
+                messages.push({
+                  role: "system",
+                  content: contextSummary
+                });
+
+                logger?.info('💭 [DeepTreeEcho] Added memory context to conversation', {
+                  contextMemories: memoryContext.memories.length
+                });
+              }
+
+              // Add the user's message
+              messages.push({
+                role: "user",
+                content: message
+              });
+
+              // Store the user's message in the database
+              logger?.info('💾 [DeepTreeEcho] Storing user message');
+              await conversationStorageTool.execute({
+                context: {
+                  session_id: chatSessionId,
+                  role: "user",
+                  content: message,
+                  metadata: { threadId: chatThreadId }
+                },
+                mastra,
+                runtimeContext,
+                tracingContext: {}
+              });
+
+              // Generate response from the agent
+              logger?.info('🤖 [DeepTreeEcho] Generating agent response');
+              const response = await agent.generate(messages, {
+                resourceId: chatSessionId,
+                threadId: chatThreadId,
+                maxSteps: 5
+              });
+
+              logger?.info('✅ [DeepTreeEcho] Agent response generated', {
+                responseLength: response.text?.length || 0,
+                toolCalls: response.toolCalls?.length || 0
+              });
+
+              // Store the assistant's response in the database
+              if (response.text) {
+                logger?.info('💾 [DeepTreeEcho] Storing assistant response');
+                await conversationStorageTool.execute({
+                  context: {
+                    session_id: chatSessionId,
+                    role: "assistant",
+                    content: response.text,
+                    metadata: { 
+                      threadId: chatThreadId,
+                      memoriesUsed: memoryContext.total_found,
+                      toolCalls: response.toolCalls?.length || 0
+                    }
+                  },
+                  mastra,
+                  runtimeContext,
+                  tracingContext: {}
+                });
+              }
+
+              logger?.info('🎉 [DeepTreeEcho] Chat interaction completed successfully', {
+                sessionId: chatSessionId,
+                threadId: chatThreadId
+              });
+
+              return c.json({
+                response: response.text,
+                sessionId: chatSessionId,
+                threadId: chatThreadId,
+                memoriesUsed: memoryContext.total_found,
+                memorySummary: memoryContext.search_summary,
+                toolCalls: response.toolCalls
+              });
+
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+              logger?.error('❌ [DeepTreeEcho] Error in chat endpoint', {
+                error: errorMessage,
+                stack: error instanceof Error ? error.stack : undefined
+              });
+
+              return c.json({ 
+                error: "Failed to process chat message",
+                details: errorMessage 
+              }, 500);
+            }
+          };
+        }
       },
     ],
   },
