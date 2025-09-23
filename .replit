@@ -46,13 +46,33 @@ externalPort = 6800
 exposeLocalhost = true
 
 [[ports]]
+localPort = 37905
+externalPort = 8099
+exposeLocalhost = true
+
+[[ports]]
 localPort = 38111
 externalPort = 3001
 exposeLocalhost = true
 
 [[ports]]
+localPort = 40167
+externalPort = 9000
+exposeLocalhost = true
+
+[[ports]]
 localPort = 40265
 externalPort = 3003
+exposeLocalhost = true
+
+[[ports]]
+localPort = 43137
+externalPort = 8081
+exposeLocalhost = true
+
+[[ports]]
+localPort = 44227
+externalPort = 8080
 exposeLocalhost = true
 
 [[ports]]

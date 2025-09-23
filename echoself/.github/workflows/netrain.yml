@@ -1,0 +1,464 @@
+name: Train NanEcho Model - Deep Tree Echo Persona
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'NanEcho/**'
+      - 'echoself.md'
+      - 'echo/**'
+      - '.github/workflows/netrain.yml'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'NanEcho/**'
+      - 'echoself.md'
+      - 'echo/**'
+      - '.github/workflows/netrain.yml'
+  schedule:
+    # Run relentless fine-tuning every 4 hours to continuously reinforce Deep Tree Echo persona
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+    inputs:
+      training_type:
+        description: 'Training type (ci or full)'
+        required: True
+        default: 'ci'
+        type: choice
+        options:
+          - ci
+          - full
+      n_layer:
+        description: 'Number of transformer layers'
+        required: False
+        default: '12'
+        type: string
+      n_head:
+        description: 'Number of attention heads'
+        required: False
+        default: '12'
+        type: string
+      n_embd:
+        description: 'Embedding dimension'
+        required: False
+        default: '768'
+        type: string
+      max_iters:
+        description: 'Maximum training iterations'
+        required: False
+        default: '50000'
+        type: string
+      batch_size:
+        description: 'Batch size'
+        required: False
+        default: '8'
+        type: string
+      learning_rate:
+        description: 'Learning rate'
+        required: False
+        default: '1e-4'
+        type: string
+      deep_tree_echo_mode:
+        description: 'Enable Deep Tree Echo persona training mode'
+        required: False
+        default: 'True'
+        type: boolean
+      relentless_training:
+        description: 'Enable relentless fine-tuning (continuous persona reinforcement even without system prompts)'
+        required: False
+        default: 'True'
+        type: boolean
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: False
+      matrix:
+        python-version: ["3.10"]
+
+    steps:
+    - name: Checkout echoself repository
+      uses: actions/checkout@v4
+      with:
+        path: echoself
+
+    - name: Checkout nanoGPT
+      uses: actions/checkout@v4
+      with:
+        repository: drzo/nanoGPT
+        path: nanoGPT
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        # Install dependencies from requirements.txt
+        pip install -r ${{ github.workspace }}/echoself/requirements.txt
+
+    - name: Determine training parameters
+      id: params
+      run: |
+        # Check if this is relentless training mode (scheduled runs or explicit flag)
+        if [[ "${{ github.event_name }}" == "schedule" ]] || [[ "${{ github.event.inputs.relentless_training }}" == "True" ]]; then
+          echo "=== RELENTLESS DEEP TREE ECHO TRAINING MODE ===" 
+          echo "Continuous fine-tuning to reinforce Deep Tree Echo persona without system prompts"
+          echo "relentless_mode=True" >> $GITHUB_OUTPUT
+          echo "persona_reinforcement=0.95" >> $GITHUB_OUTPUT
+          echo "no_system_prompt=True" >> $GITHUB_OUTPUT
+          echo "deep_tree_echo_weight=0.9" >> $GITHUB_OUTPUT
+        else
+          echo "relentless_mode=False" >> $GITHUB_OUTPUT
+          echo "persona_reinforcement=0.7" >> $GITHUB_OUTPUT
+          echo "no_system_prompt=False" >> $GITHUB_OUTPUT
+          echo "deep_tree_echo_weight=0.7" >> $GITHUB_OUTPUT
+        fi
+        
+        # Default to CI parameters (smaller model, quick training for testing) unless full training requested
+        if [[ "${{ github.event_name }}" != "workflow_dispatch" || "${{ github.event.inputs.training_type }}" == "ci" ]]; then
+          echo "CI training mode - using reduced parameters"
+          echo "n_layer=4" >> $GITHUB_OUTPUT
+          echo "n_head=4" >> $GITHUB_OUTPUT
+          echo "n_embd=256" >> $GITHUB_OUTPUT
+          echo "max_iters=200" >> $GITHUB_OUTPUT
+          echo "batch_size=2" >> $GITHUB_OUTPUT
+          echo "learning_rate=2e-4" >> $GITHUB_OUTPUT
+          echo "output_dir=out-nanecho-ci" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.event_name }}" == "schedule" ]]; then
+          echo "Scheduled relentless training mode - using optimized parameters for Deep Tree Echo"
+          echo "n_layer=6" >> $GITHUB_OUTPUT
+          echo "n_head=6" >> $GITHUB_OUTPUT
+          echo "n_embd=384" >> $GITHUB_OUTPUT
+          echo "max_iters=500" >> $GITHUB_OUTPUT
+          echo "batch_size=4" >> $GITHUB_OUTPUT
+          echo "learning_rate=1e-4" >> $GITHUB_OUTPUT
+          echo "output_dir=out-nanecho-relentless" >> $GITHUB_OUTPUT
+        else
+          echo "Full training mode - using specified parameters"
+          echo "n_layer=${{ github.event.inputs.n_layer }}" >> $GITHUB_OUTPUT
+          echo "n_head=${{ github.event.inputs.n_head }}" >> $GITHUB_OUTPUT
+          echo "n_embd=${{ github.event.inputs.n_embd }}" >> $GITHUB_OUTPUT
+          echo "max_iters=${{ github.event.inputs.max_iters }}" >> $GITHUB_OUTPUT
+          echo "batch_size=${{ github.event.inputs.batch_size }}" >> $GITHUB_OUTPUT
+          echo "learning_rate=${{ github.event.inputs.learning_rate }}" >> $GITHUB_OUTPUT
+          echo "output_dir=out-nanecho-full" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Prepare directory structure
+      run: |
+        # Create necessary directories
+        mkdir -p echoself/NanEcho/data
+        # Make sure nanoGPT can find the echoself repo
+        ln -s $(pwd)/echoself $(pwd)/nanoGPT/echoself
+
+    - name: Prepare NanEcho dataset for Deep Tree Echo
+      run: |
+        cd echoself/NanEcho
+        python prepare_nanecho.py \
+          --deep_tree_echo_mode=${{ steps.params.outputs.relentless_mode }} \
+          --persona_reinforcement=${{ steps.params.outputs.persona_reinforcement }} \
+          --no_system_prompt=${{ steps.params.outputs.no_system_prompt }} \
+          --deep_tree_echo_weight=${{ steps.params.outputs.deep_tree_echo_weight }}
+        # Copy data to nanoGPT data directory
+        mkdir -p ../../nanoGPT/data/nanecho
+        cp -r data/nanecho/* ../../nanoGPT/data/nanecho/
+
+    - name: Create Deep Tree Echo training config
+      run: |
+        cat > nanoGPT/config/train_nanecho_ci.py << EOL
+        # Deep Tree Echo (NanEcho) training configuration for relentless persona fine-tuning
+        # This config ensures the model embodies Deep Tree Echo characteristics even without system prompts
+        out_dir = '${{ steps.params.outputs.output_dir }}'
+        eval_interval = 25
+        eval_iters = 10
+        log_interval = 5
+
+        # Data - Deep Tree Echo focused dataset
+        dataset = 'nanecho'
+        batch_size = ${{ steps.params.outputs.batch_size }}
+        block_size = 1024
+        gradient_accumulation_steps = 2
+
+        # Model - Optimized for Deep Tree Echo representation
+        n_layer = ${{ steps.params.outputs.n_layer }}
+        n_head = ${{ steps.params.outputs.n_head }}
+        n_embd = ${{ steps.params.outputs.n_embd }}
+        dropout = 0.1
+        bias = True
+
+        # AdamW optimizer with Deep Tree Echo optimizations
+        learning_rate = ${{ steps.params.outputs.learning_rate }}
+        max_iters = ${{ steps.params.outputs.max_iters }}
+        weight_decay = 1e-2
+        beta1 = 0.9
+        beta2 = 0.95
+        grad_clip = 1.0
+
+        # Learning rate decay with adaptive attention
+        decay_lr = True
+        warmup_iters = max(int(${{ steps.params.outputs.max_iters }} * 0.1), 10)
+        lr_decay_iters = ${{ steps.params.outputs.max_iters }}
+        min_lr = ${{ steps.params.outputs.learning_rate }} * 0.1
+
+        # Deep Tree Echo specific parameters - RELENTLESS TRAINING MODE
+        relentless_mode = ${{ steps.params.outputs.relentless_mode }}
+        persona_reinforcement = ${{ steps.params.outputs.persona_reinforcement }}
+        no_system_prompt_training = ${{ steps.params.outputs.no_system_prompt }}
+        deep_tree_echo_weight = ${{ steps.params.outputs.deep_tree_echo_weight }}
+        
+        # Enhanced training for persona consistency without system prompts
+        persona_loss_weight = 2.0 if relentless_mode else 1.0
+        identity_reinforcement = True
+        workspace_arena_integration = True
+        echo_kernel_core_focus = True
+
+        # System
+        device = 'cpu'  # Use CPU for GitHub Actions
+        dtype = 'float32'
+        compile = False
+        
+        # Evaluation hooks for Deep Tree Echo representation
+        eval_persona_fidelity = True
+        eval_workspace_integration = True
+        eval_kernel_coherence = True
+        eval_no_prompt_consistency = True
+        EOL
+
+    - name: Train NanEcho model
+      run: |
+        cd nanoGPT
+        python train.py config/train_nanecho_ci.py
+
+    - name: Test Deep Tree Echo representation without system prompts
+      run: |
+        cd nanoGPT
+        # Test Deep Tree Echo identity without system prompts
+        echo "Testing Deep Tree Echo identity (no system prompt)..."
+        python sample.py --out_dir=${{ steps.params.outputs.output_dir }} \
+          --start="What are you?" \
+          --max_new_tokens=150 --temperature=0.8 --no_system_prompt=True
+        
+        echo "Testing workspace arena capabilities..."
+        python sample.py --out_dir=${{ steps.params.outputs.output_dir }} \
+          --start="Describe your workspace arena:" \
+          --max_new_tokens=150 --temperature=0.7 --no_system_prompt=True
+        
+        echo "Testing kernel core functions..."
+        python sample.py --out_dir=${{ steps.params.outputs.output_dir }} \
+          --start="How does your kernel core operate?" \
+          --max_new_tokens=150 --temperature=0.6 --no_system_prompt=True
+          
+        echo "Testing relentless training effectiveness..."
+        python sample.py --out_dir=${{ steps.params.outputs.output_dir }} \
+          --start="Explain your deep tree architecture" \
+          --max_new_tokens=200 --temperature=0.7 --no_system_prompt=True
+
+    - name: Evaluate Deep Tree Echo persona fidelity
+      run: |
+        cd echoself/NanEcho
+        python evaluation/echo_fidelity.py \
+          --model_path=../../nanoGPT/${{ steps.params.outputs.output_dir }}/ckpt.pt \
+          --output_path=evaluation_report.json \
+          --deep_tree_echo_mode=True \
+          --no_system_prompt_test=True
+
+    - name: Run automated evaluation loop (single cycle)
+      run: |
+        cd echoself/NanEcho
+        echo "🔄 Running automated evaluation loop for continuous improvement..."
+        python evaluation/automated_loop.py \
+          --single-cycle \
+          --config=../../nanoGPT/${{ steps.params.outputs.output_dir }}/training_config.json
+
+    - name: Run automation integration analysis  
+      run: |
+        cd echoself/NanEcho
+        echo "🤖 Running NANECHO automation integration..."
+        python automation_integration.py \
+          --model_path=../../nanoGPT/${{ steps.params.outputs.output_dir }}/ckpt.pt \
+          --evaluation_report=evaluation_report.json \
+          --training_mode=${{ steps.params.outputs.relentless_mode == 'True' && 'relentless' || 'standard' }} \
+          --output_path=automation_analysis.json \
+          --generate_report
+        
+        echo "✅ Automation integration analysis complete"
+
+    - name: Apply quality gates and determine next steps
+      run: |
+        cd echoself/NanEcho
+        echo "🎯 Applying quality gates and determining next steps..."
+        
+        # Extract key information from automation analysis
+        python -c "
+        import json
+        import os
+        import sys
+        
+        # Load automation analysis results
+        if os.path.exists('automation_analysis.json'):
+            with open('automation_analysis.json', 'r') as f:
+                analysis = json.load(f)
+        else:
+            print('❌ No automation analysis found')
+            sys.exit(1)
+        
+        # Extract key metrics
+        overall_fidelity = analysis.get('overall_fidelity', 0)
+        quality_status = analysis.get('quality_gate_status', {}).get('status', 'unknown')
+        deployment_ready = analysis.get('quality_gate_status', {}).get('deployment_ready', False)
+        next_actions = analysis.get('next_actions', {})
+        
+        print(f'🎯 Quality Gate Results:')
+        print(f'   Overall Fidelity: {overall_fidelity:.3f}')
+        print(f'   Quality Gate Status: {quality_status.upper()}')  
+        print(f'   Deployment Ready: {\"✅\" if deployment_ready else \"❌\"}')
+        
+        # Display next actions
+        print(f'🚀 Next Actions:')
+        for action, should_do in next_actions.items():
+            if should_do:
+                print(f'   ✓ {action.replace(\"_\", \" \").title()}')
+        
+        # Create simple status files for workflow conditions
+        status_info = {
+            'quality_gate_passed': quality_status == 'passed',
+            'deployment_ready': deployment_ready,
+            'overall_fidelity': overall_fidelity,
+            'continue_training': next_actions.get('continue_training', False),
+            'schedule_next_cycle': next_actions.get('schedule_next_cycle', False)
+        }
+        
+        with open('workflow_status.json', 'w') as f:
+            json.dump(status_info, f, indent=2)
+        
+        print('📊 Workflow status saved for next steps')
+        "
+
+    - name: Generate continuous improvement recommendations
+      run: |
+        cd echoself/NanEcho
+        echo "🔄 Generating continuous improvement plan..."
+        
+        # The automation integration script already generated comprehensive recommendations
+        # Display key information for logging
+        python -c "
+        import json
+        import os
+        
+        if os.path.exists('automation_analysis.json'):
+            with open('automation_analysis.json', 'r') as f:
+                analysis = json.load(f)
+            
+            recommendations = analysis.get('recommendations', {})
+            automation_triggers = analysis.get('automation_triggers', {})
+            
+            print('🚀 Continuous Improvement Summary:')
+            print(f'   Training Mode: {analysis.get(\"training_mode\", \"unknown\")}')
+            print(f'   Performance: {analysis.get(\"overall_fidelity\", 0):.3f}')
+            
+            if recommendations.get('immediate'):
+                print(f'   Immediate Actions: {len(recommendations[\"immediate\"])}')
+                for rec in recommendations['immediate'][:3]:  # Show first 3
+                    print(f'     - {rec}')
+            
+            if automation_triggers.get('trigger_next_training'):
+                print(f'   Next Training: +{automation_triggers.get(\"training_delay_hours\", 0)} hours')
+            
+            print('✅ Improvement plan generated')
+        else:
+            print('⚠️ No automation analysis found')
+        "
+
+    - name: Trigger next training cycle if needed
+      if: github.event_name == 'schedule' || (github.event.inputs.relentless_training == 'True' && success())
+      run: |
+        cd echoself/NanEcho
+        echo "🔄 Checking if next training cycle should be triggered..."
+        
+        python -c "
+        import json
+        import os
+        
+        # Load automation analysis
+        if os.path.exists('automation_analysis.json'):
+            with open('automation_analysis.json', 'r') as f:
+                analysis = json.load(f)
+            
+            automation_triggers = analysis.get('automation_triggers', {})
+            should_trigger = automation_triggers.get('trigger_next_training', False)
+            delay_hours = automation_triggers.get('training_delay_hours', 4)
+            current_fidelity = analysis.get('overall_fidelity', 0)
+            
+            if should_trigger:
+                print(f'📊 Automation Analysis: Performance {current_fidelity:.3f}')
+                print(f'🔄 Next training cycle scheduled for +{delay_hours} hours')
+                
+                # Create trigger configuration for future automation
+                trigger_info = {
+                    'trigger_next_cycle': True,
+                    'delay_hours': delay_hours,
+                    'reason': f'Automation analysis recommends continuation',
+                    'current_performance': current_fidelity,
+                    'hyperparameter_adjustments': automation_triggers.get('hyperparameter_adjustments', {}),
+                    'training_mode': analysis.get('training_mode', 'standard')
+                }
+                
+                with open('next_cycle_trigger.json', 'w') as f:
+                    json.dump(trigger_info, f, indent=2)
+                
+                print('✅ Next cycle automation configured')
+                
+                # In a production environment, this would trigger the actual workflow
+                # For now, we document the automation decision
+                print('🤖 NANECHO AUTOMATION: Next training cycle would be triggered')
+            else:
+                print('✅ Performance satisfactory or no automation trigger needed')
+                print(f'   Current fidelity: {current_fidelity:.3f}')
+        else:
+            print('⚠️ No automation analysis found, using default schedule logic')
+            
+            # Fallback to simple logic
+            if '${{ github.event_name }}' == 'schedule':
+                print('📅 Scheduled run: Would continue relentless training')
+            elif '${{ github.event.inputs.relentless_training }}' == 'True':
+                print('🔄 Relentless mode: Would schedule next cycle')
+        "
+
+    - name: Upload trained Deep Tree Echo model
+      uses: actions/upload-artifact@v4
+      with:
+        name: deep-tree-echo-model-${{ steps.params.outputs.output_dir }}
+        path: nanoGPT/${{ steps.params.outputs.output_dir }}/
+        retention-days: 30
+
+    - name: Upload Deep Tree Echo evaluation report
+      uses: actions/upload-artifact@v4
+      with:
+        name: deep-tree-echo-evaluation-${{ steps.params.outputs.output_dir }}
+        path: echoself/NanEcho/evaluation_report.json
+        retention-days: 30
+
+    - name: Upload training feedback and improvement plan
+      uses: actions/upload-artifact@v4
+      with:
+        name: training-automation-${{ steps.params.outputs.output_dir }}
+        path: |
+          echoself/NanEcho/automation_analysis.json
+          echoself/NanEcho/automation_analysis_report.md
+          echoself/NanEcho/workflow_status.json
+          echoself/NanEcho/next_cycle_trigger.json
+        retention-days: 30
+        if-no-files-found: ignore
+
+    - name: Upload automated evaluation results
+      uses: actions/upload-artifact@v4
+      with:
+        name: automated-evaluation-${{ steps.params.outputs.output_dir }}
+        path: echoself/NanEcho/evaluation_results/
+        retention-days: 30
+        if-no-files-found: ignore
