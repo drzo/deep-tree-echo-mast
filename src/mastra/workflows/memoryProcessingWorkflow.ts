@@ -352,43 +352,55 @@ export const memoryProcessingWorkflow = createWorkflow({
       completedAt: z.string(),
     }),
     execute: async ({ inputData }) => {
-      // Monthly output is the input for this step
-      const monthlyOutput = inputData;
+      const logger = console;
+      logger.log('📊 [MemoryProcessing] Starting output aggregation', {
+        timestamp: new Date().toISOString(),
+        step: 'output-aggregation'
+      });
+
+      // Monthly results are passed as input
+      const monthlyResults = inputData;
       
-      // For this simple aggregation, we'll use default values for daily and weekly
-      // since we can't access previous step outputs directly
-      const allSuccess = monthlyOutput.success;
-      
-      // Build comprehensive summary
+      // Build comprehensive summary showing the complete workflow status
       const summaryParts = [
         `Memory Processing Cycle Completed at ${new Date().toISOString()}`,
-        `Monthly introspection: ${monthlyOutput.processing_summary}`,
+        `Monthly introspection: ${monthlyResults.processing_summary}`
       ];
-      
-      return {
-        success: allSuccess,
+
+      // For a complete solution, we'll need to store step results in a shared location
+      // For now, we'll report what we can from the monthly step
+      const result = {
+        success: monthlyResults.success,
         daily: {
-          processed_count: 0,
+          processed_count: 0, // Will be populated from stored results in future enhancement
           working_memories_created: 0,
           patterns_discovered: 0,
           tags_created: 0,
         },
         weekly: {
-          memories_processed: 0,
+          memories_processed: 0, // Will be populated from stored results in future enhancement
           semantic_facts_created: 0,
           episodic_events_created: 0,
           procedural_routines_created: 0,
         },
         monthly: {
-          memories_analyzed: monthlyOutput.memories_analyzed,
-          wisdom_insights_created: monthlyOutput.wisdom_insights_created,
-          identity_patterns_found: monthlyOutput.identity_patterns_found,
-          contradictions_resolved: monthlyOutput.contradictions_resolved,
-          meta_insights_generated: monthlyOutput.meta_insights_generated,
+          memories_analyzed: monthlyResults.memories_analyzed || 0,
+          wisdom_insights_created: monthlyResults.wisdom_insights_created || 0,
+          identity_patterns_found: monthlyResults.identity_patterns_found || 0,
+          contradictions_resolved: monthlyResults.contradictions_resolved || 0,
+          meta_insights_generated: monthlyResults.meta_insights_generated || 0,
         },
         summary: summaryParts.join('\n'),
         completedAt: new Date().toISOString(),
       };
+
+      logger.log('✅ [MemoryProcessing] Output aggregation completed', {
+        monthlyAnalyzed: result.monthly.memories_analyzed,
+        overallSuccess: result.success,
+        note: 'Daily and weekly metrics will be enhanced in future updates'
+      });
+
+      return result;
     }
   }))
   .commit();

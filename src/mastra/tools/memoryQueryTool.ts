@@ -32,33 +32,31 @@ const searchSemanticMemories = async (
     const result = await db.query(
       `SELECT 
         concept, 
-        fact_text, 
-        relationships,
-        confidence_score,
-        context,
-        tags,
-        created_at,
+        knowledge_content, 
+        related_concepts,
+        confidence_level,
+        source_references,
+        last_updated,
         1 - (embedding <=> $1::vector) as similarity
       FROM semantic_memory
       WHERE 
-        (concept ILIKE $2 OR fact_text ILIKE $2)
+        (concept ILIKE $2 OR knowledge_content ILIKE $2)
         OR (1 - (embedding <=> $1::vector)) > 0.7
-      ORDER BY similarity DESC, confidence_score DESC
+      ORDER BY similarity DESC, confidence_level DESC
       LIMIT $3`,
       [JSON.stringify(embedding), `%${query}%`, limit]
     );
 
     return result.rows.map(row => ({
       type: 'semantic' as const,
-      content: `${row.concept}: ${row.fact_text}`,
+      content: `${row.concept}: ${row.knowledge_content}`,
       metadata: {
-        relationships: row.relationships,
-        confidence: row.confidence_score,
-        context: row.context,
-        tags: row.tags,
+        related_concepts: row.related_concepts,
+        confidence: row.confidence_level,
+        source_references: row.source_references,
       },
-      relevance_score: row.similarity || row.confidence_score,
-      created_at: row.created_at,
+      relevance_score: row.similarity || row.confidence_level,
+      created_at: row.last_updated,
     }));
   } catch (error) {
     logger?.error('❌ [MemoryQuery] Error searching semantic memories', { error });
@@ -77,35 +75,35 @@ const searchEpisodicMemories = async (
   try {
     const result = await db.query(
       `SELECT 
-        event_type,
+        event_title,
         event_description,
-        temporal_context,
-        emotional_valence,
         participants,
-        outcome,
-        significance_score,
-        created_at,
+        emotional_context,
+        significance_rating,
+        lessons_learned,
+        event_timestamp,
+        memory_created_at,
         1 - (embedding <=> $1::vector) as similarity
       FROM episodic_memory
       WHERE 
-        (event_type ILIKE $2 OR event_description ILIKE $2 OR outcome ILIKE $2)
+        (event_title ILIKE $2 OR event_description ILIKE $2 OR lessons_learned ILIKE $2)
         OR (1 - (embedding <=> $1::vector)) > 0.7
-      ORDER BY similarity DESC, significance_score DESC
+      ORDER BY similarity DESC, significance_rating DESC
       LIMIT $3`,
       [JSON.stringify(embedding), `%${query}%`, limit]
     );
 
     return result.rows.map(row => ({
       type: 'episodic' as const,
-      content: `${row.event_type}: ${row.event_description}. Outcome: ${row.outcome}`,
+      content: `${row.event_title}: ${row.event_description}. Lessons: ${row.lessons_learned}`,
       metadata: {
-        temporal_context: row.temporal_context,
-        emotional_valence: row.emotional_valence,
+        event_timestamp: row.event_timestamp,
+        emotional_context: row.emotional_context,
         participants: row.participants,
-        significance: row.significance_score,
+        significance: row.significance_rating,
       },
-      relevance_score: row.similarity || row.significance_score,
-      created_at: row.created_at,
+      relevance_score: row.similarity || row.significance_rating,
+      created_at: row.memory_created_at,
     }));
   } catch (error) {
     logger?.error('❌ [MemoryQuery] Error searching episodic memories', { error });
