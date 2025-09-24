@@ -15,6 +15,16 @@ import { weeklyProcessorTool } from "./tools/weeklyProcessorTool";
 import { monthlyIntrospectionTool } from "./tools/monthlyIntrospectionTool";
 import { conversationStorageTool } from "./tools/conversationStorageTool";
 import { memoryQueryTool } from "./tools/memoryQueryTool";
+
+// Import cognitive skills from ai-opencog integration
+import { 
+  codeAnalysisTool,
+  advancedReasoningTool,
+  productionOptimizationTool,
+  adaptiveLearningTool,
+  cognitiveSkillsOrchestratorTool,
+  CognitiveSkillsManager
+} from "../skills";
 import { memoryProcessingWorkflow } from "./workflows/memoryProcessingWorkflow";
 import { deepTreeEchoAgent } from "./agents/deepTreeEchoAgent";
 
@@ -75,11 +85,19 @@ export const mastra = new Mastra({
       name: "allTools",
       version: "1.0.0",
       tools: { 
+        // Memory and conversation tools
         dailyParserTool, 
         weeklyProcessorTool, 
         monthlyIntrospectionTool,
         conversationStorageTool,
-        memoryQueryTool
+        memoryQueryTool,
+        
+        // Cognitive skills from ai-opencog
+        codeAnalysisTool,
+        advancedReasoningTool, 
+        productionOptimizationTool,
+        adaptiveLearningTool,
+        cognitiveSkillsOrchestratorTool
       },
     }),
   },
