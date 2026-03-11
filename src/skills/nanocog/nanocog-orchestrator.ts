@@ -641,6 +641,5 @@ export class NanoCogOrchestrator {
   }
 }
 
-// Export the orchestrator instance and schemas
+// Export the orchestrator instance
 export const nanoCogOrchestrator = new NanoCogOrchestrator();
-export { nanoCogTaskSchema };
