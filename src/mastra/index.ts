@@ -8,7 +8,7 @@ import { NonRetriableError } from "inngest";
 import { z } from "zod";
 import { RuntimeContext } from "@mastra/core/di";
 
-import { sharedPostgresStorage } from "./storage";
+import { sharedStorage } from "./storage";
 import { inngest, inngestServe, registerCronWorkflow } from "./inngest";
 import { dailyParserTool } from "./tools/dailyParserTool";
 import { weeklyProcessorTool } from "./tools/weeklyProcessorTool";
@@ -77,7 +77,7 @@ registerCronWorkflow(
 );
 
 export const mastra = new Mastra({
-  storage: sharedPostgresStorage,
+  storage: sharedStorage,
   agents: { deepTreeEchoAgent },
   workflows: { memoryProcessingWorkflow },
   mcpServers: {

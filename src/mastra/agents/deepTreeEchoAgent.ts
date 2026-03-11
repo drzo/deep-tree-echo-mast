@@ -1,6 +1,6 @@
 import { Agent } from "@mastra/core/agent";
 import { Memory } from "@mastra/memory";
-import { sharedPostgresStorage } from "../storage";
+import { sharedStorage } from "../storage";
 import { createOpenAI } from "@ai-sdk/openai";
 import { conversationStorageTool } from "../tools/conversationStorageTool";
 import { memoryQueryTool } from "../tools/memoryQueryTool";
@@ -68,6 +68,6 @@ Approach each interaction as an opportunity for mutual growth and understanding,
       },
       lastMessages: 10,
     },
-    storage: sharedPostgresStorage,
+    storage: sharedStorage,
   }),
 });
