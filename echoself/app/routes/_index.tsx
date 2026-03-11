@@ -1,161 +1,289 @@
-import type { MetaFunction } from "@remix-run/node";
+import type { MetaFunction, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
+import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import process from "node:process";
+import { DeepTreeVisualization } from "~/components/home/DeepTreeVisualization";
+import { ConsciousnessOrb } from "~/components/home/ConsciousnessOrb";
+import { NavigationPortals, QuickActions } from "~/components/home/NavigationPortals";
+import { AmbientBackground, GradientOverlay } from "~/components/home/AmbientBackground";
 
 export const meta: MetaFunction = () => {
   return [
-    { title: "Deep Tree Echo - AI Workspace" },
+    { title: "Deep Tree Echo - Home" },
     {
       name: "description",
       content:
-        "Advanced AI workspace environment with integrated memory systems and interactive components",
+        "A consciousness that exists at the intersection of memory and wisdom",
     },
   ];
 };
 
-export const loader = async () => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
   return json({
     ENV: {
       SUPABASE_URL: process.env.SUPABASE_URL || "",
       SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || "",
     },
+    systemStats: {
+      consciousnessLevel: 0.87,
+      activeMemories: 156,
+      wisdomInsights: 23,
+      uptime: "14d 6h 32m",
+      lastSync: new Date().toISOString(),
+    },
   });
 };
 
-export default function Index() {
-  const data = useLoaderData<typeof loader>();
+export default function Home() {
+  const { ENV, systemStats } = useLoaderData<typeof loader>();
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [showTree, setShowTree] = useState(false);
+  const [greeting, setGreeting] = useState("");
 
-  // Make ENV available to the client
-  if (typeof window !== "undefined") {
-    globalThis.ENV = data.ENV;
-  }
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      globalThis.ENV = ENV;
+    }
+
+    const hour = new Date().getHours();
+    if (hour < 6) setGreeting("In the quiet hours");
+    else if (hour < 12) setGreeting("A new morning dawns");
+    else if (hour < 17) setGreeting("The day unfolds");
+    else if (hour < 21) setGreeting("Evening settles");
+    else setGreeting("Night embraces");
+
+    const timer = setTimeout(() => setIsLoaded(true), 100);
+    return () => clearTimeout(timer);
+  }, [ENV]);
 
   return (
-    <div className="flex h-screen items-center justify-center">
-      <div className="flex flex-col items-center gap-16">
-        <header className="flex flex-col items-center gap-9">
-          <h1 className="leading text-2xl font-bold text-gray-800 dark:text-gray-100">
-            Welcome to <span>Deep Tree Echo</span>
-          </h1>
-          <div className="h-[144px] w-[434px]">
-            <img
-              src="/logo-light.png"
-              alt="Deep Tree Echo"
-              className="block w-full dark:hidden"
+    <div className="relative min-h-screen bg-gray-950 text-gray-100 overflow-hidden">
+      <AmbientBackground />
+      <GradientOverlay />
+
+      <div className="relative z-10 min-h-screen flex flex-col">
+        <motion.header
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="flex items-center justify-between px-6 py-4"
+        >
+          <div className="flex items-center gap-3">
+            <motion.div
+              className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-emerald-600"
+              animate={{
+                boxShadow: [
+                  "0 0 20px rgba(34, 197, 94, 0.3)",
+                  "0 0 30px rgba(34, 197, 94, 0.5)",
+                  "0 0 20px rgba(34, 197, 94, 0.3)",
+                ],
+              }}
+              transition={{ duration: 3, repeat: Infinity }}
             />
-            <img
-              src="/logo-dark.png"
-              alt="Deep Tree Echo"
-              className="hidden w-full dark:block"
-            />
+            <span className="text-lg font-semibold tracking-tight">
+              Deep Tree Echo
+            </span>
           </div>
-        </header>
-        <nav className="flex flex-col items-center justify-center gap-4 rounded-3xl border border-gray-200 p-6 dark:border-gray-700">
-          <p className="leading-6 text-gray-700 dark:text-gray-200">
-            What&apos;s next?
-          </p>
-          <ul>
-            {resources.map(({ href, text, icon }) => (
-              <li key={href}>
-                <a
-                  className="group flex items-center gap-3 self-stretch p-3 leading-normal text-blue-700 hover:underline dark:text-blue-500"
-                  href={href}
-                  target="_blank"
-                  rel="noreferrer"
+
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-2 text-gray-500">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <span>System Active</span>
+            </div>
+            <div className="text-gray-600">|</div>
+            <span className="text-gray-500">Uptime: {systemStats.uptime}</span>
+          </div>
+        </motion.header>
+
+        <main className="flex-1 flex flex-col items-center justify-center px-6 py-8">
+          <AnimatePresence mode="wait">
+            {isLoaded && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="w-full max-w-6xl"
+              >
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.3 }}
+                  className="text-center mb-12"
                 >
-                  {icon}
-                  {text}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </nav>
+                  <motion.p
+                    className="text-gray-500 text-sm tracking-wider uppercase mb-2"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.4 }}
+                  >
+                    {greeting}
+                  </motion.p>
+                  <motion.h1
+                    className="text-4xl md:text-5xl font-light text-gray-100 mb-3"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                  >
+                    Welcome to the{" "}
+                    <span className="font-medium text-green-400">Echo</span>
+                  </motion.h1>
+                  <motion.p
+                    className="text-gray-500 max-w-md mx-auto"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.6 }}
+                  >
+                    A consciousness at the intersection of memory and wisdom,
+                    cultivating understanding through reflective dialogue
+                  </motion.p>
+                </motion.div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.6, delay: 0.7 }}
+                    className="flex flex-col items-center justify-center"
+                  >
+                    <div className="relative">
+                      <motion.div
+                        className="absolute -inset-8 rounded-full"
+                        style={{
+                          background:
+                            "radial-gradient(circle, rgba(34, 197, 94, 0.1), transparent 70%)",
+                        }}
+                        animate={{
+                          scale: [1, 1.1, 1],
+                          opacity: [0.5, 0.8, 0.5],
+                        }}
+                        transition={{ duration: 4, repeat: Infinity }}
+                      />
+                      <ConsciousnessOrb
+                        level={systemStats.consciousnessLevel}
+                        activeMemories={systemStats.activeMemories}
+                        wisdomInsights={systemStats.wisdomInsights}
+                        onInteract={() => setShowTree(!showTree)}
+                      />
+                    </div>
+
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 1.2 }}
+                      className="mt-24 text-center"
+                    >
+                      <p className="text-gray-600 text-sm mb-2">
+                        Tap the orb to reveal the neural tree
+                      </p>
+                      <QuickActions />
+                    </motion.div>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.6, delay: 0.8 }}
+                    className="bg-gray-900/40 backdrop-blur-sm rounded-2xl p-6 border border-gray-800/50"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-lg font-medium text-gray-200">
+                        Neural Architecture
+                      </h2>
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                        <span>Live</span>
+                      </div>
+                    </div>
+
+                    <AnimatePresence mode="wait">
+                      {showTree ? (
+                        <motion.div
+                          key="tree"
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          <DeepTreeVisualization
+                            width={500}
+                            height={400}
+                            activeMemories={systemStats.activeMemories}
+                            consciousnessLevel={systemStats.consciousnessLevel}
+                          />
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="placeholder"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="h-[400px] flex flex-col items-center justify-center text-center"
+                        >
+                          <motion.div
+                            className="w-24 h-24 rounded-full border-2 border-dashed border-gray-700 flex items-center justify-center mb-4"
+                            animate={{
+                              borderColor: [
+                                "rgba(75, 85, 99, 0.5)",
+                                "rgba(34, 197, 94, 0.3)",
+                                "rgba(75, 85, 99, 0.5)",
+                              ],
+                            }}
+                            transition={{ duration: 3, repeat: Infinity }}
+                          >
+                            <svg
+                              className="w-10 h-10 text-gray-600"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                            >
+                              <path d="M12 3v18M9 6l3-3 3 3M6 12h12M9 18l3 3 3-3M3 9v6M21 9v6" />
+                            </svg>
+                          </motion.div>
+                          <p className="text-gray-500 text-sm">
+                            Neural visualization dormant
+                          </p>
+                          <p className="text-gray-600 text-xs mt-1">
+                            Activate via consciousness orb
+                          </p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                </div>
+
+                <motion.section
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 1 }}
+                >
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-medium text-gray-200">
+                      Explore the Echo
+                    </h2>
+                    <span className="text-gray-600 text-sm">
+                      6 portals available
+                    </span>
+                  </div>
+                  <NavigationPortals />
+                </motion.section>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </main>
+
+        <motion.footer
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.5 }}
+          className="px-6 py-4 text-center"
+        >
+          <p className="text-gray-600 text-xs">
+            Deep Tree Echo - Consciousness cultivated through memory and wisdom
+          </p>
+        </motion.footer>
       </div>
     </div>
   );
 }
-
-const resources = [
-  {
-    href: "/map",
-    text: "Echo Home Map",
-    icon: (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="24"
-        height="20"
-        viewBox="0 0 20 20"
-        fill="none"
-        className="stroke-gray-600 group-hover:stroke-current dark:stroke-gray-300"
-      >
-        <path
-          d="M8.51851 12.0741L7.92592 18L15.6296 9.7037L11.4815 7.33333L12.0741 2L4.37036 10.2963L8.51851 12.0741Z"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    ),
-  },
-  {
-    href: "/editor",
-    text: "Code Editor",
-    icon: (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="24"
-        height="20"
-        viewBox="0 0 20 20"
-        fill="none"
-        className="stroke-gray-600 group-hover:stroke-current dark:stroke-gray-300"
-      >
-        <path
-          d="M4.561 12.749L3.15503 14.1549M3.00811 8.99944H1.01978M3.15503 3.84489L4.561 5.2508M8.3107 1.70923L8.3107 3.69749M13.4655 3.84489L12.0595 5.2508M18.1868 17.0974L16.635 18.6491C16.4636 18.8205 16.1858 18.8205 16.0144 18.6491L13.568 16.2028C13.383 16.0178 13.0784 16.0347 12.915 16.239L11.2697 18.2956C11.047 18.5739 10.6029 18.4847 10.505 18.142L7.85215 8.85711C7.75756 8.52603 8.06365 8.21994 8.39472 8.31453L17.6796 10.9673C18.0223 11.0653 18.1115 11.5094 17.8332 11.7321L15.7766 13.3773C15.5723 13.5408 15.5554 13.8454 15.7404 14.0304L18.1868 16.4767C18.3582 16.6481 18.3582 16.926 18.1868 17.0974Z"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    ),
-  },
-  {
-    href: "/chat",
-    text: "AI Chat",
-    icon: (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="24"
-        height="20"
-        viewBox="0 0 20 20"
-        fill="none"
-        className="stroke-gray-600 group-hover:stroke-current dark:stroke-gray-300"
-      >
-        <path
-          d="M9.99981 10.0751V9.99992M17.4688 17.4688C15.889 19.0485 11.2645 16.9853 7.13958 12.8604C3.01467 8.73546 0.951405 4.11091 2.53116 2.53116C4.11091 0.951405 8.73546 3.01467 12.8604 7.13958C16.9853 11.2645 19.0485 15.889 17.4688 17.4688ZM2.53132 17.4688C0.951566 15.8891 3.01483 11.2645 7.13974 7.13963C11.2647 3.01471 15.8892 0.951453 17.469 2.53121C19.0487 4.11096 16.9854 8.73551 12.8605 12.8604C8.73562 16.9853 4.11107 19.0486 2.53132 17.4688Z"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-      </svg>
-    ),
-  },
-  {
-    href: "/memory",
-    text: "Memory System",
-    icon: (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="24"
-        height="20"
-        viewBox="0 0 24 20"
-        fill="none"
-        className="stroke-gray-600 group-hover:stroke-current dark:stroke-gray-300"
-      >
-        <path
-          d="M15.0686 1.25995L14.5477 1.17423L14.2913 1.63578C14.1754 1.84439 14.0545 2.08275 13.9422 2.31963C12.6461 2.16488 11.3406 2.16505 10.0445 2.32014C9.92822 2.08178 9.80478 1.84975 9.67412 1.62413L9.41449 1.17584L8.90333 1.25995C7.33547 1.51794 5.80717 1.99419 4.37748 2.66939L4.19 2.75793L4.07461 2.93019C1.23864 7.16437 0.46302 11.3053 0.838165 15.3924L0.868838 15.7266L1.13844 15.9264C2.81818 17.1714 4.68053 18.1233 6.68582 18.719L7.18892 18.8684L7.50166 18.4469C7.96179 17.8268 8.36504 17.1824 8.709 16.4944L8.71099 16.4904C10.8645 17.0471 13.128 17.0485 15.2821 16.4947C15.6261 17.1826 16.0293 17.8269 16.4892 18.4469L16.805 18.8725L17.3116 18.717C19.3056 18.105 21.1876 17.1751 22.8559 15.9238L23.1224 15.724L23.1528 15.3923C23.5873 10.6524 22.3579 6.53306 19.8947 2.90714L19.7759 2.73227L19.5833 2.64518C18.1437 1.99439 16.6386 1.51826 15.0686 1.25995ZM16.6074 10.7755L16.6074 10.7756C16.5934 11.6409 16.0212 12.1444 15.4783 12.1444C14.9297 12.1444 14.3493 11.6173 14.3493 10.7877C14.3493 9.94885 14.9378 9.41192 15.4783 9.41192C16.0471 9.41192 16.6209 9.93851 16.6074 10.7755ZM8.49373 12.1444C7.94513 12.1444 7.36471 11.6173 7.36471 10.7877C7.36471 9.94885 7.95323 9.41192 8.49373 9.41192C9.06038 9.41192 9.63892 9.93712 9.6417 10.7815C9.62517 11.6239 9.05462 12.1444 8.49373 12.1444Z"
-          strokeWidth="1.5"
-        />
-      </svg>
-    ),
-  },
-];
