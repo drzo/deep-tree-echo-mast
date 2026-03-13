@@ -1,11 +1,8 @@
 import { createWorkflow, createStep } from "../inngest";
 import { z } from "zod";
-import { RuntimeContext } from "@mastra/core/di";
 import { dailyParserTool } from "../tools/dailyParserTool";
 import { weeklyProcessorTool } from "../tools/weeklyProcessorTool";
 import { monthlyIntrospectionTool } from "../tools/monthlyIntrospectionTool";
-
-const runtimeContext = new RuntimeContext();
 
 // Step 1: Execute Daily Parser Tool
 const dailyParsingStep = createStep({
@@ -36,7 +33,7 @@ const dailyParsingStep = createStep({
           min_significance: 0.2
         },
         tracingContext: {},
-        runtimeContext
+        runtimeContext: {}
       });
 
       console.log('✅ [MemoryProcessing] Daily parsing completed successfully', {
@@ -136,7 +133,7 @@ const weeklyProcessingStep = createStep({
           batch_size: 100
         },
         tracingContext: {},
-        runtimeContext
+        runtimeContext: {}
       });
 
       console.log('✅ [MemoryProcessing] Weekly processing completed successfully', {
@@ -239,7 +236,7 @@ const monthlyIntrospectionStep = createStep({
           max_memories: 500
         },
         tracingContext: {},
-        runtimeContext
+        runtimeContext: {}
       });
 
       console.log('✅ [MemoryProcessing] Monthly introspection completed successfully', {

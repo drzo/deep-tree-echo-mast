@@ -1,12 +1,9 @@
 import { Mastra } from "@mastra/core";
 import { MastraError } from "@mastra/core/error";
-import { PinoLogger } from "@mastra/loggers";
 import { LogLevel, MastraLogger } from "@mastra/core/logger";
 import pino from "pino";
-import { MCPServer } from "@mastra/mcp";
 import { NonRetriableError } from "inngest";
 import { z } from "zod";
-import { RuntimeContext } from "@mastra/core/di";
 
 import { sharedStorage } from "./storage";
 import { inngest, inngestServe, registerCronWorkflow } from "./inngest";
@@ -80,26 +77,17 @@ export const mastra = new Mastra({
   storage: sharedStorage,
   agents: { deepTreeEchoAgent },
   workflows: { memoryProcessingWorkflow },
-  mcpServers: {
-    allTools: new MCPServer({
-      name: "allTools",
-      version: "1.0.0",
-      tools: { 
-        // Memory and conversation tools
-        dailyParserTool, 
-        weeklyProcessorTool, 
-        monthlyIntrospectionTool,
-        conversationStorageTool,
-        memoryQueryTool,
-        
-        // Cognitive skills from ai-opencog
-        codeAnalysisTool,
-        advancedReasoningTool, 
-        productionOptimizationTool,
-        adaptiveLearningTool,
-        cognitiveSkillsOrchestratorTool
-      },
-    }),
+  tools: {
+    dailyParserTool,
+    weeklyProcessorTool,
+    monthlyIntrospectionTool,
+    conversationStorageTool,
+    memoryQueryTool,
+    codeAnalysisTool,
+    advancedReasoningTool,
+    productionOptimizationTool,
+    adaptiveLearningTool,
+    cognitiveSkillsOrchestratorTool
   },
   bundler: {
     // A few dependencies are not properly picked up by
@@ -201,7 +189,6 @@ export const mastra = new Mastra({
 
               // First, query relevant memories to provide context
               logger?.info('🔍 [DeepTreeEcho] Searching memories for context');
-              const runtimeContext = new RuntimeContext();
               const memoryContext = await memoryQueryTool.execute({
                 context: {
                   query: message,
@@ -210,7 +197,7 @@ export const mastra = new Mastra({
                   include_recent_working: true
                 },
                 mastra,
-                runtimeContext,
+                runtimeContext: {},
                 tracingContext: {}
               });
 
@@ -256,7 +243,7 @@ export const mastra = new Mastra({
                   metadata: { threadId: chatThreadId }
                 },
                 mastra,
-                runtimeContext,
+                runtimeContext: {},
                 tracingContext: {}
               });
 
@@ -281,14 +268,14 @@ export const mastra = new Mastra({
                     session_id: chatSessionId,
                     role: "assistant",
                     content: response.text,
-                    metadata: { 
+                    metadata: {
                       threadId: chatThreadId,
                       memoriesUsed: memoryContext.total_found,
                       toolCalls: response.toolCalls?.length || 0
                     }
                   },
                   mastra,
-                  runtimeContext,
+                  runtimeContext: {},
                   tracingContext: {}
                 });
               }
@@ -324,16 +311,10 @@ export const mastra = new Mastra({
       },
     ],
   },
-  logger:
-    process.env.NODE_ENV === "production"
-      ? new ProductionPinoLogger({
-          name: "Mastra",
-          level: "info",
-        })
-      : new PinoLogger({
-          name: "Mastra",
-          level: "info",
-        }),
+  logger: new ProductionPinoLogger({
+    name: "Mastra",
+    level: "info",
+  }),
 });
 
 /*  Sanity check 1: Throw an error if there are more than 1 workflows.  */
