@@ -1,5 +1,6 @@
 import { LibSQLStore } from "@mastra/libsql";
 
 export const sharedStorage = new LibSQLStore({
-  url: ":memory:",
+  id: "deep-tree-echo-store",
+  url: process.env.LIBSQL_URL || "file:local.db",
 });
